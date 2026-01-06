@@ -1,6 +1,7 @@
 package com.surety;
 
 import java.sql.*;
+import java.util.*;
 
 public class Database {
 
@@ -108,6 +109,123 @@ public class Database {
             System.err.println("[DB] Gagal simpan draft: " + e.getMessage());
         }
     }
+
+    public static void deleteById(long id) throws SQLException {
+    String sql = "DELETE FROM draft_jaminan WHERE id = ?";
+    try (Connection conn = DriverManager.getConnection(DB_URL);
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+        ps.setLong(1, id);
+        ps.executeUpdate();
+    }
+    }
+
+
+    public static void updateDraft(
+        long id,
+        String principal,
+        String alamatPrincipal,
+        String obligee,
+        String alamatObligee,
+        String pekerjaan,
+        String dasarSurat,
+        String tglDasarSurat,
+        String jenisJaminan,
+        String direktur,
+        String jabatan,
+        String tglMulai,
+        String tglSelesai,
+        String tglTerbit,
+        String modeNilai,
+        double nilaiKontrak,
+        double persen,
+        double nilaiJaminan,
+        long jangkaHari
+    ) throws SQLException {
+
+    String sql = """
+        UPDATE draft_jaminan SET
+            principal=?,
+            alamat_principal=?,
+            obligee=?,
+            alamat_obligee=?,
+            pekerjaan=?,
+            dasar_surat=?,
+            tgl_dasar_surat=?,
+            jenis_jaminan=?,
+            direktur=?,
+            jabatan=?,
+            tgl_mulai=?,
+            tgl_selesai=?,
+            tgl_terbit=?,
+            mode_nilai=?,
+            nilai_kontrak=?,
+            persen=?,
+            nilai_jaminan=?,
+            jangka_hari=?
+        WHERE id=?
+    """;
+
+    try (Connection conn = DriverManager.getConnection(DB_URL);
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        ps.setString(1, principal);
+        ps.setString(2, alamatPrincipal);
+        ps.setString(3, obligee);
+        ps.setString(4, alamatObligee);
+        ps.setString(5, pekerjaan);
+        ps.setString(6, dasarSurat);
+        ps.setString(7, tglDasarSurat);
+        ps.setString(8, jenisJaminan);
+        ps.setString(9, direktur);
+        ps.setString(10, jabatan);
+        ps.setString(11, tglMulai);
+        ps.setString(12, tglSelesai);
+        ps.setString(13, tglTerbit);
+        ps.setString(14, modeNilai);
+        ps.setDouble(15, nilaiKontrak);
+        ps.setDouble(16, persen);
+        ps.setDouble(17, nilaiJaminan);
+        ps.setLong(18, jangkaHari);
+        ps.setLong(19, id);
+
+        ps.executeUpdate();
+    }
+    }
+
+    public static Map<String, Object> getDraftById(long id) throws SQLException {
+    String sql = "SELECT * FROM draft_jaminan WHERE id = ?";
+    try (Connection conn = DriverManager.getConnection(DB_URL);
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        ps.setLong(1, id);
+        try (ResultSet rs = ps.executeQuery()) {
+            if (!rs.next()) return null;
+
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", rs.getLong("id"));
+            m.put("principal", rs.getString("principal"));
+            m.put("alamat_principal", rs.getString("alamat_principal"));
+            m.put("obligee", rs.getString("obligee"));
+            m.put("alamat_obligee", rs.getString("alamat_obligee"));
+            m.put("pekerjaan", rs.getString("pekerjaan"));
+            m.put("dasar_surat", rs.getString("dasar_surat"));
+            m.put("tgl_dasar_surat", rs.getString("tgl_dasar_surat"));
+            m.put("jenis_jaminan", rs.getString("jenis_jaminan"));
+            m.put("direktur", rs.getString("direktur"));
+            m.put("jabatan", rs.getString("jabatan"));
+            m.put("tgl_mulai", rs.getString("tgl_mulai"));
+            m.put("tgl_selesai", rs.getString("tgl_selesai"));
+            m.put("tgl_terbit", rs.getString("tgl_terbit"));
+            m.put("mode_nilai", rs.getString("mode_nilai"));
+            m.put("nilai_kontrak", rs.getDouble("nilai_kontrak"));
+            m.put("persen", rs.getDouble("persen"));
+            m.put("nilai_jaminan", rs.getDouble("nilai_jaminan"));
+            m.put("jangka_hari", rs.getLong("jangka_hari"));
+            return m;
+        }
+    }
+    }
+    
     public static String getAllDrafts() {
     StringBuilder sb = new StringBuilder();
     String sql = "SELECT * FROM draft_jaminan ORDER BY id DESC";

@@ -8,7 +8,7 @@ public class DraftRow {
     public final String jenis;
     public final double nilaiJaminan;
     public final long jangkaHari;
-    public final String tglTerbit; // atau LocalDate kalau kamu simpan itu
+    public final String tglTerbit;
 
     public DraftRow(long id, String principal, String obligee, String pekerjaan,
                     String jenis, double nilaiJaminan, long jangkaHari, String tglTerbit) {
@@ -21,4 +21,14 @@ public class DraftRow {
         this.jangkaHari = jangkaHari;
         this.tglTerbit = tglTerbit;
     }
+
+    // ✅ GETTER (TableView butuh ini)
+    public long getId() { return id; }
+    public String getPrincipal() { return principal; }
+    public String getObligee() { return obligee; }
+    public String getPekerjaan() { return pekerjaan; }
+    public String getJenis() { return jenis; }
+    public double getNilaiJaminan() { return nilaiJaminan; }
+    public long getJangkaHari() { return jangkaHari; }
+    public String getTglTerbit() { return tglTerbit; }
 }

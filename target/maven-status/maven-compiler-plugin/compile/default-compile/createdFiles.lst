@@ -1,3 +1,4 @@
+com\surety\DraftTableView$1.class
 com\surety\App.class
 com\surety\Database.class
 com\surety\TemplateResolver.class
@@ -6,4 +7,5 @@ com\surety\TanggalUtil.class
 com\surety\CurrencyUtil.class
 com\surety\TerbilangUtil.class
 com\surety\DraftRow.class
+com\surety\DraftTableView.class
 com\surety\Main.class
