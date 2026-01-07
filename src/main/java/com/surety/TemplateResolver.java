@@ -9,8 +9,8 @@ public class TemplateResolver {
         "Performance Bond", "/templates/PB_Takaful_Template.docx",
         "Advance Payment Bond", "/templates/APB_Takaful_Template.docx",
         "Maintenance Bond", "/templates/MB_Takaful_Template.docx",
-        "SPPA", "/templates/SPPA_Template.docx"
-
+        "SPPA", "/templates/SPPA_Template.docx",
+        "SPMGR", "/templates/SPMGR_Template.docx"
     );
 
     public static String resolve(String jenisJaminan) {

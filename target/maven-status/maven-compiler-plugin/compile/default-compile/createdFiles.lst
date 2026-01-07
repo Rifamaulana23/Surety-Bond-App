@@ -6,6 +6,8 @@ com\surety\DocxGenerator.class
 com\surety\TanggalUtil.class
 com\surety\CurrencyUtil.class
 com\surety\TerbilangUtil.class
+com\surety\DraftTableView$AlertType.class
 com\surety\DraftRow.class
 com\surety\DraftTableView.class
+com\surety\Main$PopupType.class
 com\surety\Main.class

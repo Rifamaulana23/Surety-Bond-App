@@ -40,7 +40,7 @@ public class Main extends Application {
         Label title = new Label("Draft Jaminan — Surety Bond");
         title.setStyle("-fx-font-size:22px;-fx-font-weight:700;");
 
-        Label subtitle = new Label("Kelola draft jaminan, generate dokumen dan SPPA");
+        Label subtitle = new Label("Kelola draft jaminan, generate dokumen, SPPA dan SPMGR");
         subtitle.setStyle("-fx-text-fill:#6b7280;");
 
         VBox header = new VBox(6, title, subtitle);
@@ -437,7 +437,10 @@ public class Main extends Application {
                 String spTemplate = TemplateResolver.resolve("SPPA");
                 String spOutput = "output/SPPA_" + safeFile(tfPrincipal.getText()) + ".docx";
                 DocxGenerator.generateFromResource(spTemplate, spOutput, data);
-
+                String spmgrTemplate = TemplateResolver.resolve("SPMGR");
+                String spmgrOutput = "output/SPMGR_" + safeFile(tfPrincipal.getText()) + ".docx";
+                DocxGenerator.generateFromResource(spmgrTemplate, spmgrOutput, data);
+                
                 showPopup("Sukses", "Draft berhasil digenerate! (" + outputPath + ")", PopupType.SUCCESS);
                 System.out.println("[DOCX] Generated: " + outputPath);
             } catch (Exception ex) {
