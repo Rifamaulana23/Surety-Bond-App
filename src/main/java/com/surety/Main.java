@@ -1,469 +1,602 @@
 package com.surety;
 
+import javafx.animation.PauseTransition;
 import javafx.application.Application;
-import javafx.geometry.HPos;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.ColumnConstraints;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.Priority;
+import javafx.scene.layout.*;
 import javafx.stage.Stage;
-import java.util.HashMap;
-import java.util.Map;
-import com.surety.DraftTableView;
+import javafx.util.Duration;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.Map;
 
+/**
+ * Main.java
+ * - Modern responsive UI (card per section)
+ * - All original business logic preserved
+ * - Replaced inline text messages with a custom popup "sweet-alert"-like UI
+ */
 public class Main extends Application {
+
+    
+    private StackPane overlayPane;
 
     @Override
     public void start(Stage stage) {
         Database.init();
 
+        BorderPane root = new BorderPane();
+        root.setStyle("-fx-background-color:#f4f6f9;");
 
-        // ========== LAYOUT UTAMA ==========
-        GridPane grid = new GridPane();
-        grid.setPadding(new Insets(20));
-        grid.setVgap(10);
-        grid.setHgap(18);
+        /* ================= HEADER ================= */
+        Label title = new Label("Draft Jaminan — Surety Bond");
+        title.setStyle("-fx-font-size:22px;-fx-font-weight:700;");
 
-        // Atur lebar kolom biar rapi
-        ColumnConstraints colLabel = new ColumnConstraints();
-        colLabel.setMinWidth(170);
-        colLabel.setPrefWidth(220);   // coba 190-220 biar enak
-        colLabel.setHgrow(Priority.NEVER);
+        Label subtitle = new Label("Kelola draft jaminan, generate dokumen dan SPPA");
+        subtitle.setStyle("-fx-text-fill:#6b7280;");
 
-        ColumnConstraints colField = new ColumnConstraints();
-        colField.setHgrow(Priority.ALWAYS);
+        VBox header = new VBox(6, title, subtitle);
+        header.setPadding(new Insets(16));
+        root.setTop(header);
 
-        grid.getColumnConstraints().clear();
-        grid.getColumnConstraints().addAll(colLabel, colField);
-
-        int row = 0;
-
-        // ========== HEADER ==========
-        Label header = new Label("Draft Jaminan Surety Bond");
-        header.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
-        grid.add(header, 0, row, 2, 1);
-        GridPane.setHalignment(header, HPos.CENTER);
-        row++;
-
-        // Spasi kecil setelah header
-        row++;
-
-        // ========== FIELD DATA DASAR ==========
+        /* ================= FORM FIELDS ================= */
         TextField tfPrincipal = new TextField();
+        tfPrincipal.setPromptText("Contoh: PT. ABC Indonesia");
+
         TextField tfAlamatPrincipal = new TextField();
+        tfAlamatPrincipal.setPromptText("Contoh: Jl. Merdeka No.1, Jakarta");
+
         TextField tfObligee = new TextField();
+        tfObligee.setPromptText("Contoh: PT. Pemilik Proyek");
+
         TextField tfAlamatObligee = new TextField();
+        tfAlamatObligee.setPromptText("Alamat lengkap obligee");
+
         TextField tfPekerjaan = new TextField();
+        tfPekerjaan.setPromptText("Contoh: Pembangunan Gedung A - Paket 1");
+
         TextField tfDasarSurat = new TextField();
         tfDasarSurat.setPromptText("Contoh: SPK No. 123/ABC/2025");
+
         DatePicker dpTanggalSurat = new DatePicker();
+
         ComboBox<String> cbJenisJaminan = new ComboBox<>();
         cbJenisJaminan.getItems().addAll(
-    "BB tender",
+                "BB tender",
                 "BB mini Komp",
-                "Performance Bond", 
+                "Performance Bond",
                 "Advance Payment Bond",
                 "Maintenance Bond"
         );
         cbJenisJaminan.setPromptText("Pilih jenis jaminan");
 
         TextField tfDirektur = new TextField();
-        TextField tfJabatan = new TextField();
+        tfDirektur.setPromptText("Nama direktur yang menandatangani (mis. John Doe)");
 
-        // ========== TANGGAL & JANGKA WAKTU ==========
+        TextField tfJabatan = new TextField();
+        tfJabatan.setPromptText("Jabatan direktur (mis. Direktur Utama)");
+
         DatePicker dpMulai = new DatePicker();
         DatePicker dpSelesai = new DatePicker();
         DatePicker dpTerbit = new DatePicker();
-        Label lblJangkaWaktu = new Label("- hari");
 
-        // Listener jangka waktu
-        Runnable updateJangka = () -> hitungJangkaWaktu(dpMulai, dpSelesai, lblJangkaWaktu);
-        dpMulai.valueProperty().addListener((obs, o, n) -> updateJangka.run());
-        dpSelesai.valueProperty().addListener((obs, o, n) -> updateJangka.run());
-
-        // ========== MODE NILAI JAMINAN ==========
-        RadioButton rbNilaiKontrak = new RadioButton("Input nilai kontrak + persentase");
-        RadioButton rbNilaiJaminan = new RadioButton("Input nilai jaminan langsung");
-        ToggleGroup tgMode = new ToggleGroup();
-        rbNilaiKontrak.setToggleGroup(tgMode);
-        rbNilaiJaminan.setToggleGroup(tgMode);
-        rbNilaiKontrak.setSelected(true);
+        Label lblJangka = new Label("- hari");
+        lblJangka.setStyle("-fx-font-weight:600;");
 
         TextField tfNilaiKontrak = new TextField();
-        tfNilaiKontrak.setPromptText("Contoh: 200000000");
-
+        tfNilaiKontrak.setPromptText("Contoh: 200000000 (angka tanpa pemisah)");
         TextField tfPersen = new TextField();
-        tfPersen.setPromptText("Contoh: 5");
-
+        tfPersen.setPromptText("Contoh: 5 (persentase)");
         TextField tfNilaiJaminan = new TextField();
-        tfNilaiJaminan.setPromptText("Nilai jaminan");
-        tfNilaiJaminan.setEditable(false); // default: dihitung otomatis
+        tfNilaiJaminan.setPromptText("Nilai jaminan (otomatis dihitung jika Kontrak+%)");
+        tfNilaiJaminan.setEditable(false);
 
-        // Listener auto-calc
-        Runnable updateNilaiJaminan = () -> {
-            if (rbNilaiKontrak.isSelected()) {
-                hitungNilaiJaminan(tfNilaiKontrak, tfPersen, tfNilaiJaminan);
-            }
-        };
+        RadioButton rbKontrak = new RadioButton("Nilai Kontrak + %");
+        RadioButton rbLangsung = new RadioButton("Nilai Jaminan Langsung");
+        ToggleGroup tg = new ToggleGroup();
+        rbKontrak.setToggleGroup(tg);
+        rbLangsung.setToggleGroup(tg);
+        rbKontrak.setSelected(true);
 
-        tfNilaiKontrak.textProperty().addListener((obs, o, n) -> updateNilaiJaminan.run());
-        tfPersen.textProperty().addListener((obs, o, n) -> updateNilaiJaminan.run());
+        /* ================= LISTENER ================= */
+        dpMulai.valueProperty().addListener((a,b,c)->updateJangka(dpMulai, dpSelesai, lblJangka));
+        dpSelesai.valueProperty().addListener((a,b,c)->updateJangka(dpMulai, dpSelesai, lblJangka));
 
-        // Mode toggle
-        rbNilaiKontrak.setOnAction(e -> {
+        tfNilaiKontrak.textProperty().addListener((a,b,c)->calcJaminan(rbKontrak, tfNilaiKontrak, tfPersen, tfNilaiJaminan));
+        tfPersen.textProperty().addListener((a,b,c)->calcJaminan(rbKontrak, tfNilaiKontrak, tfPersen, tfNilaiJaminan));
+
+        rbKontrak.setOnAction(e->{
             tfNilaiKontrak.setDisable(false);
             tfPersen.setDisable(false);
             tfNilaiJaminan.setEditable(false);
-            updateNilaiJaminan.run();
+            tfNilaiJaminan.setPromptText("Nilai jaminan (otomatis dihitung saat pilih Kontrak+%)");
         });
 
-        rbNilaiJaminan.setOnAction(e -> {
+        rbLangsung.setOnAction(e->{
             tfNilaiKontrak.setDisable(true);
             tfPersen.setDisable(true);
             tfNilaiJaminan.setEditable(true);
+            tfNilaiJaminan.setPromptText("Masukkan nilai jaminan secara manual (mis. 10000000)");
             tfNilaiJaminan.clear();
         });
 
-        // ========== SUSUN FORM ==========
-        grid.add(new Label("Nama Principal"), 0, row); grid.add(tfPrincipal, 1, row++);        
-        grid.add(new Label("Alamat Principal"), 0, row); grid.add(tfAlamatPrincipal, 1, row++);
-        grid.add(new Label("Nama Obligee"), 0, row); grid.add(tfObligee, 1, row++);
-        grid.add(new Label("Alamat Obligee"), 0, row); grid.add(tfAlamatObligee, 1, row++);
-        grid.add(new Label("Nama Pekerjaan"), 0, row); grid.add(tfPekerjaan, 1, row++);
-        grid.add(new Label("Dasar Surat"), 0, row); grid.add(tfDasarSurat, 1, row++);
-        grid.add(new Label("Tanggal Surat"), 0, row); grid.add(dpTanggalSurat, 1, row++);
-        grid.add(new Label("Jenis Jaminan"), 0, row); grid.add(cbJenisJaminan, 1, row++);
-        grid.add(new Label("Nama Direktur"), 0, row); grid.add(tfDirektur, 1, row++);
-        grid.add(new Label("Jabatan"), 0, row); grid.add(tfJabatan, 1, row++);
-
-        grid.add(new Label("Tanggal Mulai"), 0, row); grid.add(dpMulai, 1, row++);
-        grid.add(new Label("Tanggal Selesai"), 0, row); grid.add(dpSelesai, 1, row++);
-        grid.add(new Label("Jangka Waktu"), 0, row); grid.add(lblJangkaWaktu, 1, row++);
-        grid.add(new Label("Tanggal Terbit"), 0, row); grid.add(dpTerbit, 1, row++);
-
-        // Mode nilai
-        grid.add(new Label("Mode Nilai"), 0, row);
-        GridPane modeBox = new GridPane();
-        modeBox.setHgap(10);
-        modeBox.add(rbNilaiKontrak, 0, 0);
-        modeBox.add(rbNilaiJaminan, 0, 1);
-        grid.add(modeBox, 1, row++);
         
-        grid.add(new Label("Nilai Kontrak"), 0, row); grid.add(tfNilaiKontrak, 1, row++);
-        grid.add(new Label("Persentase Jaminan (%)"), 0, row); grid.add(tfPersen, 1, row++);
-        grid.add(new Label("Nilai Jaminan"), 0, row); grid.add(tfNilaiJaminan, 1, row++);
+        Control[] fields = { tfPrincipal, tfAlamatPrincipal, tfObligee, tfAlamatObligee, tfPekerjaan,
+                tfDasarSurat, dpTanggalSurat, cbJenisJaminan, tfDirektur, tfJabatan,
+                dpMulai, dpSelesai, dpTerbit, tfNilaiKontrak, tfPersen, tfNilaiJaminan };
+        for (Control c : fields) c.setPrefWidth(620);
 
-        // ========== BUTTON & INFO ==========
-        Button btnSimpan = new Button("Simpan");
-        Button btnGenerate = new Button("Generate Draft dan SPPA");
-        Button btnDaftar = new Button("Draft Tersimpan");
-        Button btnUpdate = new Button("Update Draft");
-        
-        
-        btnDaftar.setMinWidth(190);
-        btnSimpan.setMinWidth(140);
-        btnGenerate.setMinWidth(170);
-        btnUpdate.setMinWidth(140);
-        GridPane buttonBox = new GridPane();
-        buttonBox.setHgap(10);
-        buttonBox.add(btnSimpan, 0, 0);
-        buttonBox.add(btnGenerate, 1, 0);
-        buttonBox.add(btnDaftar, 2, 0);
-        buttonBox.add(btnUpdate, 3, 0);  
-        grid.add(buttonBox, 1, row++);
-
-        Label lblInfo = new Label("Silakan isi data jaminan dengan lengkap.");
-        lblInfo.setWrapText(true);
-        grid.add(lblInfo, 0, row, 2, 1);
-
-        final long[] editingId = new long[] { -1 };
-    
-    // ========== AKSI TOMBOL ==========
-    btnSimpan.setOnAction(e -> {
-    double nilaiJaminan = parseDouble(tfNilaiJaminan.getText());
-    double nilaiKontrak = parseDouble(tfNilaiKontrak.getText());
-    double persen = parseDouble(tfPersen.getText());
-    
-    var tanggalSurat = dpTanggalSurat.getValue();
-    var mulai = dpMulai.getValue();
-    var selesai = dpSelesai.getValue();
-    var terbit = dpTerbit.getValue();
-
-    long jangkaHari = 0;
-    if (mulai != null && selesai != null && !selesai.isBefore(mulai)) {
-        jangkaHari = ChronoUnit.DAYS.between(mulai, selesai) + 1;
-    }
-
-    String modeNilai = rbNilaiKontrak.isSelected()
-            ? "Kontrak+Persen"
-            : "NilaiJaminan";
-
-    // simpan ke DB
-    Database.simpanDraft(
-            tfPrincipal.getText(),
-            tfAlamatPrincipal.getText(),
-            tfObligee.getText(),
-            tfAlamatObligee.getText(),
-            tfPekerjaan.getText(),
-            tfDasarSurat.getText(),
-            (tanggalSurat != null ? tanggalSurat.toString() : null),
-            cbJenisJaminan.getValue(),
-            tfDirektur.getText(),
-            tfJabatan.getText(),
-            (mulai != null ? mulai.toString() : null),
-            (selesai != null ? selesai.toString() : null),
-            (terbit != null ? terbit.toString() : null),
-            modeNilai,
-            nilaiKontrak,
-            persen,
-            nilaiJaminan,
-            jangkaHari
-    );
-
-    lblInfo.setText("✅ Draft tersimpan ke database. Data boleh belum lengkap, bisa dilengkapi nanti.");
-
-    System.out.println("=== DRAFT DISIMPAN KE DB ===");
-});
-
-btnDaftar.setOnAction(e -> {
-    System.out.println("### BTN DAFTAR CLICKED -> OPEN TABLEVIEW ###");
-
-    new DraftTableView().show(id -> {
-        System.out.println("EDIT ID: " + id);
-
-        try {
-            Map<String, Object> d = Database.getDraftById(id);
-            if (d == null) {
-                lblInfo.setText("Data draft tidak ditemukan.");
-                return;
-            }
-
-            // ✅ inilah yang belum kamu lakukan
-            editingId[0] = id;
-
-            tfPrincipal.setText((String) d.get("principal"));
-            tfAlamatPrincipal.setText((String) d.get("alamat_principal"));
-            tfObligee.setText((String) d.get("obligee"));
-            tfAlamatObligee.setText((String) d.get("alamat_obligee"));
-            tfPekerjaan.setText((String) d.get("pekerjaan"));
-            tfDasarSurat.setText((String) d.get("dasar_surat"));
-
-            cbJenisJaminan.setValue((String) d.get("jenis_jaminan"));
-            tfDirektur.setText((String) d.get("direktur"));
-            tfJabatan.setText((String) d.get("jabatan"));
-
-            // DatePicker parse dari "YYYY-MM-DD"
-            String tglDasar = (String) d.get("tgl_dasar_surat");
-            dpTanggalSurat.setValue(tglDasar == null ? null : LocalDate.parse(tglDasar));
-
-            String mulai = (String) d.get("tgl_mulai");
-            dpMulai.setValue(mulai == null ? null : LocalDate.parse(mulai));
-
-            String selesai = (String) d.get("tgl_selesai");
-            dpSelesai.setValue(selesai == null ? null : LocalDate.parse(selesai));
-
-            String terbit = (String) d.get("tgl_terbit");
-            dpTerbit.setValue(terbit == null ? null : LocalDate.parse(terbit));
-
-            // Mode nilai
-            String mode = (String) d.get("mode_nilai");
-            if ("NilaiJaminan".equals(mode)) rbNilaiJaminan.fire();
-            else rbNilaiKontrak.fire();
-
-            // angka
-            tfNilaiKontrak.setText(String.valueOf((Double) d.get("nilai_kontrak")));
-            tfPersen.setText(String.valueOf((Double) d.get("persen")));
-            tfNilaiJaminan.setText(String.valueOf((Double) d.get("nilai_jaminan")));
-
-            lblInfo.setText("✏️ Edit mode aktif (ID=" + editingId[0] + "). Ubah lalu klik Update Draft.");
-
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            lblInfo.setText("Gagal load data untuk edit.");
-        }
-    });
-});
-
-
-btnUpdate.setOnAction(e -> {
-    try {
-        if (editingId[0] <= 0) {
-            lblInfo.setText("Pilih draft dulu dari tabel (klik Edit).");
-            return;
-        }
-
-        double nilaiJaminan = parseDouble(tfNilaiJaminan.getText());
-        double nilaiKontrak = parseDouble(tfNilaiKontrak.getText());
-        double persen = parseDouble(tfPersen.getText());
-
-        var tanggalSurat = dpTanggalSurat.getValue();
-        var mulai = dpMulai.getValue();
-        var selesai = dpSelesai.getValue();
-        var terbit = dpTerbit.getValue();
-
-        long jangkaHari = 0;
-        if (mulai != null && selesai != null && !selesai.isBefore(mulai)) {
-            jangkaHari = ChronoUnit.DAYS.between(mulai, selesai) + 1;
-        }
-
-        String modeNilai = rbNilaiKontrak.isSelected() ? "Kontrak+Persen" : "NilaiJaminan";
-
-        Database.updateDraft(
-                editingId[0],
-                tfPrincipal.getText(),
-                tfAlamatPrincipal.getText(),
-                tfObligee.getText(),
-                tfAlamatObligee.getText(),
-                tfPekerjaan.getText(),
-                tfDasarSurat.getText(),
-                (tanggalSurat != null ? tanggalSurat.toString() : null),
-                cbJenisJaminan.getValue(),
-                tfDirektur.getText(),
-                tfJabatan.getText(),
-                (mulai != null ? mulai.toString() : null),
-                (selesai != null ? selesai.toString() : null),
-                (terbit != null ? terbit.toString() : null),
-                modeNilai,
-                nilaiKontrak,
-                persen,
-                nilaiJaminan,
-                jangkaHari
+        /* ================= CARDS ================= */
+        VBox cardData = card("A. Data Dasar",
+                grid(
+                        row("Nama Principal", tfPrincipal),
+                        row("Alamat Principal", tfAlamatPrincipal),
+                        row("Nama Obligee", tfObligee),
+                        row("Alamat Obligee", tfAlamatObligee),
+                        row("Nama Pekerjaan", tfPekerjaan),
+                        row("Dasar Surat", tfDasarSurat),
+                        row("Tanggal Surat", dpTanggalSurat),
+                        row("Jenis Jaminan", cbJenisJaminan),
+                        row("Nama Direktur", tfDirektur),
+                        row("Jabatan", tfJabatan)
+                )
         );
 
-        lblInfo.setText("✅ Draft berhasil di-update (ID=" + editingId[0] + ")");
-        editingId[0] = -1;
-    } catch (Exception ex) {
-        ex.printStackTrace();
-        lblInfo.setText("Gagal update draft.");
-    }
-});
+        VBox cardTanggal = card("B. Tanggal",
+                grid(
+                        row("Tanggal Mulai", dpMulai),
+                        row("Tanggal Selesai", dpSelesai),
+                        row("Jangka Waktu", lblJangka),
+                        row("Tanggal Terbit", dpTerbit)
+                )
+        );
 
+        VBox cardNilai = card("C. Nilai Jaminan",
+                grid(
+                        row("Mode Nilai", new VBox(6, rbKontrak, rbLangsung)),
+                        row("Nilai Kontrak", tfNilaiKontrak),
+                        row("Persentase Jaminan (%)", tfPersen),
+                        row("Nilai Jaminan", tfNilaiJaminan)
+                )
+        );
 
-btnGenerate.setOnAction(e -> {
-    try {
-        Map<String, String> data = new HashMap<>();
+        Button btnSave = actionBtn("Simpan", "#10b981");
+        Button btnGen = actionBtn("Generate", "#2563eb");
+        Button btnList = actionBtn("Draft Tersimpan", "#6b7280");
+        Button btnUpdate = actionBtn("Update", "#f59e0b");
+
+        HBox actions = new HBox(12, btnSave, btnGen, btnList, btnUpdate);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+
+        VBox cardAction = card("", new VBox(10, actions));
+
+        /* ================= MAIN CONTENT ================= */
+        VBox content = new VBox(16, cardData, cardTanggal, cardNilai, cardAction);
+        content.setPadding(new Insets(20));
+        content.setMaxWidth(1100);
+        content.setFillWidth(true);
+
+        ScrollPane scroll = new ScrollPane(content);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background-color:transparent;");
+
+        StackPane center = new StackPane(scroll);
+        StackPane.setMargin(scroll, new Insets(0,20,20,20));
+
+        root.setCenter(center);
+
+        /* ================= OVERLAY (popup) ================= */
+        overlayPane = new StackPane();
+        overlayPane.setPickOnBounds(false); 
         
-        // sesuaikan KEY ini dengan placeholder di template Draft
-        data.put("NAMA_PRINCIPAL", tfPrincipal.getText());
-        data.put("ALAMAT_PRINCIPAL", tfAlamatPrincipal.getText());
-        data.put("NAMA_OBLIGEE", tfObligee.getText());
-        data.put("ALAMAT_OBLIGEE", tfAlamatObligee.getText());
-        data.put("NAMA_PEKERJAAN", tfPekerjaan.getText());
-        data.put("DASAR_SURAT", tfDasarSurat.getText());
-        data.put("TGL_DASAR_SURAT",
-        TanggalUtil.formatIndonesia(dpTanggalSurat.getValue()));
-        data.put("JENIS_JAMINAN", cbJenisJaminan.getValue());
-        data.put("NAMA_DIREKTUR_PRINCIPAL", tfDirektur.getText());
-        data.put("JABATAN_DIREKTUR_PRINCIPAL", tfJabatan.getText());
+        StackPane appStack = new StackPane(root, overlayPane);
 
-        data.put("TGL_MULAI",
-        TanggalUtil.formatIndonesia(dpMulai.getValue()));
+        /* ===========================
+           RESTORE FUNCTIONALITY: HANDLERS
+           =========================== */
+        final long[] editingId = new long[] { -1 };
 
-        data.put("TGL_SELESAI",
-        TanggalUtil.formatIndonesia(dpSelesai.getValue()));
+        
+        btnSave.setOnAction(e -> {
+            double nilaiJaminan = parseDouble(tfNilaiJaminan.getText());
+            double nilaiKontrak = parseDouble(tfNilaiKontrak.getText());
+            double persen = parseDouble(tfPersen.getText());
 
-        data.put("TGL_TERBIT",
-        TanggalUtil.formatIndonesia(dpTerbit.getValue()));
+            LocalDate tanggalSurat = dpTanggalSurat.getValue();
+            LocalDate mulai = dpMulai.getValue();
+            LocalDate selesai = dpSelesai.getValue();
+            LocalDate terbit = dpTerbit.getValue();
 
-        LocalDate mulai = dpMulai.getValue();
-        LocalDate selesai = dpSelesai.getValue();
+            long jangkaHari = 0;
+            if (mulai != null && selesai != null && !selesai.isBefore(mulai)) {
+                jangkaHari = ChronoUnit.DAYS.between(mulai, selesai) + 1;
+            }
 
-        long jangkaHari = 0;
-        if (mulai != null && selesai != null && !selesai.isBefore(mulai)) {
-            jangkaHari = ChronoUnit.DAYS.between(mulai, selesai) + 1; // inklusif
-        }
+            String modeNilai = rbKontrak.isSelected() ? "Kontrak+Persen" : "NilaiJaminan";
 
-        data.put("JANGKA_WAKTU", jangkaHari == 0 ? "" : String.valueOf(jangkaHari));
-        data.put("JANGKA_WAKTU_TERBILANG", jangkaHari == 0 ? "" : TerbilangUtil.terbilang(jangkaHari));
+            Database.simpanDraft(
+                    tfPrincipal.getText(),
+                    tfAlamatPrincipal.getText(),
+                    tfObligee.getText(),
+                    tfAlamatObligee.getText(),
+                    tfPekerjaan.getText(),
+                    tfDasarSurat.getText(),
+                    (tanggalSurat != null ? tanggalSurat.toString() : null),
+                    cbJenisJaminan.getValue(),
+                    tfDirektur.getText(),
+                    tfJabatan.getText(),
+                    (mulai != null ? mulai.toString() : null),
+                    (selesai != null ? selesai.toString() : null),
+                    (terbit != null ? terbit.toString() : null),
+                    modeNilai,
+                    nilaiKontrak,
+                    persen,
+                    nilaiJaminan,
+                    jangkaHari
+            );
 
+            showPopup("Sukses", "Draft tersimpan ke database. Data boleh belum lengkap, bisa dilengkapi nanti.", PopupType.SUCCESS);
+            System.out.println("=== DRAFT DISIMPAN KE DB ===");
+        });
 
-        data.put("NILAI_KONTRAK", tfNilaiKontrak.getText());
-        data.put("PERSEN", tfPersen.getText());
-        long nilaiJaminanAngka = (long) parseDouble(tfNilaiJaminan.getText());
+        
+        btnList.setOnAction(e -> {
+            System.out.println("### BTN DAFTAR CLICKED -> OPEN TABLEVIEW ###");
 
-        data.put("NILAI_JAMINAN", CurrencyUtil.rupiah(nilaiJaminanAngka));
+            new DraftTableView().show(id -> {
+                System.out.println("EDIT ID: " + id);
+                try {
+                    Map<String, Object> d = Database.getDraftById(id);
+                    if (d == null) {
+                        showPopup("Tidak Ditemukan", "Data draft tidak ditemukan.", PopupType.WARNING);
+                        return;
+                    }
 
-        data.put("NILAI_JAMINAN_TERBILANG",
-        TerbilangUtil.rupiah(nilaiJaminanAngka));
+                    editingId[0] = id;
 
-        String jenis = cbJenisJaminan.getValue(); // ambil jenis yang dipilih user
+                    tfPrincipal.setText((String) d.get("principal"));
+                    tfAlamatPrincipal.setText((String) d.get("alamat_principal"));
+                    tfObligee.setText((String) d.get("obligee"));
+                    tfAlamatObligee.setText((String) d.get("alamat_obligee"));
+                    tfPekerjaan.setText((String) d.get("pekerjaan"));
+                    tfDasarSurat.setText((String) d.get("dasar_surat"));
 
-        String templateRes = TemplateResolver.resolve(jenis);
-        if (templateRes == null) {
-            System.out.println("[DOCX] Jenis jaminan belum dipilih / belum dimapping: " + jenis);
-            return; // atau tampilkan alert
-        }
+                    cbJenisJaminan.setValue((String) d.get("jenis_jaminan"));
+                    tfDirektur.setText((String) d.get("direktur"));
+                    tfJabatan.setText((String) d.get("jabatan"));
 
-        //draft jaminan
-        String outputPath = "output/" + jenis.replaceAll("\\s+", "_") + "_" + safeFile(tfPrincipal.getText()) + ".docx";
+                    String tglDasar = (String) d.get("tgl_dasar_surat");
+                    dpTanggalSurat.setValue(tglDasar == null ? null : LocalDate.parse(tglDasar));
 
-        DocxGenerator.generateFromResource(templateRes, outputPath, data);
+                    String mulaiStr = (String) d.get("tgl_mulai");
+                    dpMulai.setValue(mulaiStr == null ? null : LocalDate.parse(mulaiStr));
 
-        // ===== GENERATE SURAT PERMOHONAN (SPPA) =====
-        String spTemplate = TemplateResolver.resolve("SPPA");
-        String spOutput = "output/SPPA_" + safeFile(tfPrincipal.getText()) + ".docx";
+                    String selesaiStr = (String) d.get("tgl_selesai");
+                    dpSelesai.setValue(selesaiStr == null ? null : LocalDate.parse(selesaiStr));
 
-        DocxGenerator.generateFromResource(spTemplate, spOutput, data);
+                    String terbitStr = (String) d.get("tgl_terbit");
+                    dpTerbit.setValue(terbitStr == null ? null : LocalDate.parse(terbitStr));
 
-        lblInfo.setText("✅ Draft berhasil digenerate! (" + outputPath + ")");
-        System.out.println("[DOCX] Generated: " + outputPath);
+                    
+                    String mode = (String) d.get("mode_nilai");
+                    if ("NilaiJaminan".equals(mode)) {
+                        rbLangsung.fire();
+                    } else {
+                        rbKontrak.fire();
+                    }
 
-    } catch (Exception ex) {
-        ex.printStackTrace();
-        lblInfo.setText("Gagal salah input data atau belum memilih jenis jaminan!");
-    }
+                    
+                    Object nk = d.get("nilai_kontrak");
+                    Object p = d.get("persen");
+                    Object nj = d.get("nilai_jaminan");
 
-    });
-    
-        // ========== TAMPILKAN WINDOW ==========
-        ScrollPane scroll = new ScrollPane(grid);
-        scroll.setFitToWidth(true); // biar form ikut lebar window 
+                    tfNilaiKontrak.setText(nk == null ? "" : String.valueOf(((Number) nk).doubleValue()));
+                    tfPersen.setText(p == null ? "" : String.valueOf(((Number) p).doubleValue()));
+                    tfNilaiJaminan.setText(nj == null ? "" : String.valueOf(((Number) nj).doubleValue()));
 
-        Scene scene = new Scene(scroll, 1100, 750);
+                    showPopup("Edit Mode", "✏️ Edit mode aktif (ID=" + editingId[0] + "). Ubah lalu klik Update Draft.", PopupType.INFO);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    showPopup("Error", "Gagal load data untuk edit.", PopupType.ERROR);
+                }
+            });
+        });
 
-        stage.setTitle("Surety Bond App - Draft Jaminan");
+        
+        btnUpdate.setOnAction(e -> {
+            try {
+                if (editingId[0] <= 0) {
+                    showPopup("Info", "Pilih draft dulu dari tabel (klik Edit).", PopupType.INFO);
+                    return;
+                }
+
+                double nilaiJaminan = parseDouble(tfNilaiJaminan.getText());
+                double nilaiKontrak = parseDouble(tfNilaiKontrak.getText());
+                double persen = parseDouble(tfPersen.getText());
+
+                LocalDate tanggalSurat = dpTanggalSurat.getValue();
+                LocalDate mulai = dpMulai.getValue();
+                LocalDate selesai = dpSelesai.getValue();
+                LocalDate terbit = dpTerbit.getValue();
+
+                long jangkaHari = 0;
+                if (mulai != null && selesai != null && !selesai.isBefore(mulai)) {
+                    jangkaHari = ChronoUnit.DAYS.between(mulai, selesai) + 1;
+                }
+
+                String modeNilai = rbKontrak.isSelected() ? "Kontrak+Persen" : "NilaiJaminan";
+
+                Database.updateDraft(
+                        editingId[0],
+                        tfPrincipal.getText(),
+                        tfAlamatPrincipal.getText(),
+                        tfObligee.getText(),
+                        tfAlamatObligee.getText(),
+                        tfPekerjaan.getText(),
+                        tfDasarSurat.getText(),
+                        (tanggalSurat != null ? tanggalSurat.toString() : null),
+                        cbJenisJaminan.getValue(),
+                        tfDirektur.getText(),
+                        tfJabatan.getText(),
+                        (mulai != null ? mulai.toString() : null),
+                        (selesai != null ? selesai.toString() : null),
+                        (terbit != null ? terbit.toString() : null),
+                        modeNilai,
+                        nilaiKontrak,
+                        persen,
+                        nilaiJaminan,
+                        jangkaHari
+                );
+
+                showPopup("Sukses", "Draft berhasil di-update (ID=" + editingId[0] + ")", PopupType.SUCCESS);
+                editingId[0] = -1;
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                showPopup("Gagal", "Gagal update draft.", PopupType.ERROR);
+            }
+        });
+
+        
+        btnGen.setOnAction(e -> {
+            try {
+                Map<String, String> data = new HashMap<>();
+
+                data.put("NAMA_PRINCIPAL", tfPrincipal.getText());
+                data.put("ALAMAT_PRINCIPAL", tfAlamatPrincipal.getText());
+                data.put("NAMA_OBLIGEE", tfObligee.getText());
+                data.put("ALAMAT_OBLIGEE", tfAlamatObligee.getText());
+                data.put("NAMA_PEKERJAAN", tfPekerjaan.getText());
+                data.put("DASAR_SURAT", tfDasarSurat.getText());
+                data.put("TGL_DASAR_SURAT", TanggalUtil.formatIndonesia(dpTanggalSurat.getValue()));
+                data.put("JENIS_JAMINAN", cbJenisJaminan.getValue());
+                data.put("NAMA_DIREKTUR_PRINCIPAL", tfDirektur.getText());
+                data.put("JABATAN_DIREKTUR_PRINCIPAL", tfJabatan.getText());
+
+                data.put("TGL_MULAI", TanggalUtil.formatIndonesia(dpMulai.getValue()));
+                data.put("TGL_SELESAI", TanggalUtil.formatIndonesia(dpSelesai.getValue()));
+                data.put("TGL_TERBIT", TanggalUtil.formatIndonesia(dpTerbit.getValue()));
+
+                LocalDate mulai = dpMulai.getValue();
+                LocalDate selesai = dpSelesai.getValue();
+
+                long jangkaHari = 0;
+                if (mulai != null && selesai != null && !selesai.isBefore(mulai)) {
+                    jangkaHari = ChronoUnit.DAYS.between(mulai, selesai) + 1;
+                }
+
+                data.put("JANGKA_WAKTU", jangkaHari == 0 ? "" : String.valueOf(jangkaHari));
+                data.put("JANGKA_WAKTU_TERBILANG", jangkaHari == 0 ? "" : TerbilangUtil.terbilang(jangkaHari));
+
+                data.put("NILAI_KONTRAK", tfNilaiKontrak.getText());
+                data.put("PERSEN", tfPersen.getText());
+                long nilaiJaminanAngka = (long) parseDouble(tfNilaiJaminan.getText());
+
+                data.put("NILAI_JAMINAN", CurrencyUtil.rupiah(nilaiJaminanAngka));
+                data.put("NILAI_JAMINAN_TERBILANG", TerbilangUtil.rupiah(nilaiJaminanAngka));
+
+                String jenis = cbJenisJaminan.getValue();
+                String templateRes = TemplateResolver.resolve(jenis);
+                if (templateRes == null) {
+                    System.out.println("[DOCX] Jenis jaminan belum dipilih / belum dimapping: " + jenis);
+                    showPopup("Peringatan", "Pilih jenis jaminan terlebih dahulu.", PopupType.WARNING);
+                    return;
+                }
+
+                String outputPath = "output/" + jenis.replaceAll("\\s+", "_") + "_" + safeFile(tfPrincipal.getText()) + ".docx";
+                DocxGenerator.generateFromResource(templateRes, outputPath, data);
+
+                String spTemplate = TemplateResolver.resolve("SPPA");
+                String spOutput = "output/SPPA_" + safeFile(tfPrincipal.getText()) + ".docx";
+                DocxGenerator.generateFromResource(spTemplate, spOutput, data);
+
+                showPopup("Sukses", "Draft berhasil digenerate! (" + outputPath + ")", PopupType.SUCCESS);
+                System.out.println("[DOCX] Generated: " + outputPath);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                showPopup("Gagal", "Gagal salah input data atau belum memilih jenis jaminan!", PopupType.ERROR);
+            }
+        });
+
+        /* ================= SCENE ================= */
+        Scene scene = new Scene(appStack(root, overlayPane), 1200, 820);
+        stage.setTitle("Surety Bond App");
         stage.setScene(scene);
         stage.show();
     }
 
-    // ===== Helper: Hitung Nilai Jaminan =====
-    private void hitungNilaiJaminan(TextField tfNilaiKontrak,
-                                    TextField tfPersen,
-                                    TextField tfNilaiJaminan) {
-        double kontrak = parseDouble(tfNilaiKontrak.getText());
-        double persen = parseDouble(tfPersen.getText());
-        if (kontrak <= 0 || persen <= 0) {
-            tfNilaiJaminan.setText("");
-            return;
-        }
-        double jaminan = kontrak * (persen / 100.0);
-        tfNilaiJaminan.setText(String.format("%.0f", jaminan));
+    
+    private StackPane appStack(BorderPane root, StackPane overlay) {
+        StackPane stack = new StackPane(root, overlay);
+        
+        overlay.setPickOnBounds(false);
+        return stack;
     }
 
-    // ===== Helper: Hitung Jangka Waktu =====
-    private void hitungJangkaWaktu(DatePicker dpMulai,
-                                   DatePicker dpSelesai,
-                                   Label lbl) {
+    
+    private enum PopupType { SUCCESS, ERROR, INFO, WARNING }
+
+    
+    private void showPopup(String title, String message, PopupType type) {
+        Platform.runLater(() -> {
+            
+            overlayPane.getChildren().clear();
+            overlayPane.setPickOnBounds(true);
+
+            
+            Region backdrop = new Region();
+            backdrop.setStyle("-fx-background-color: rgba(0,0,0,0.35);");
+            backdrop.setPrefSize(Double.MAX_VALUE, Double.MAX_VALUE);
+            StackPane.setAlignment(backdrop, Pos.CENTER);
+
+            
+            String bgColor;
+            String icon;
+            switch (type) {
+                case SUCCESS -> { bgColor = "#ecfdf5"; icon = "✅"; }
+                case ERROR -> { bgColor = "#fff1f2"; icon = "✖️"; }
+                case WARNING -> { bgColor = "#fffbeb"; icon = "⚠️"; }
+                default -> { bgColor = "#eef2ff"; icon = "ℹ️"; }
+            }
+
+            Label iconLabel = new Label(icon);
+            iconLabel.setStyle("-fx-font-size: 26px;");
+
+            Label titleLabel = new Label(title);
+            titleLabel.setStyle("-fx-font-weight:700; -fx-font-size:14px;");
+
+            Label msgLabel = new Label(message);
+            msgLabel.setWrapText(true);
+            msgLabel.setMaxWidth(420);
+
+            Button ok = new Button("OK");
+            ok.setStyle("-fx-background-color:#111827; -fx-text-fill:white; -fx-background-radius:8; -fx-padding:6 12;");
+            ok.setOnAction(ae -> hidePopup());
+
+            VBox box = new VBox(12);
+            box.setPadding(new Insets(20));
+            box.setAlignment(Pos.CENTER);
+
+            box.getChildren().addAll(iconLabel, titleLabel, msgLabel, ok);
+
+            
+            box.setMaxWidth(420);
+            box.setMinHeight(Region.USE_PREF_SIZE);
+            box.setMaxHeight(Region.USE_PREF_SIZE);
+
+            box.setStyle(String.format("""
+                -fx-background-color: %s;
+                -fx-background-radius: 12;
+                -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.18), 18, 0, 0, 10);
+            """, bgColor));
+
+            StackPane.setAlignment(box, Pos.CENTER);
+
+            overlayPane.getChildren().addAll(backdrop, box);
+
+            
+            PauseTransition pt = new PauseTransition(Duration.seconds(4));
+            pt.setOnFinished(ev -> hidePopup());
+            pt.play();
+        });
+    }
+
+    private void hidePopup() {
+        Platform.runLater(() -> {
+            overlayPane.getChildren().clear();
+            overlayPane.setPickOnBounds(false);
+        });
+    }
+
+    /* ================= HELPERS ================= */
+
+    private VBox card(String title, Node body){
+        VBox v = new VBox(12);
+        v.setPadding(new Insets(16));
+        v.setStyle("""
+                -fx-background-color:white;
+                -fx-background-radius:12;
+                -fx-effect:dropshadow(gaussian,rgba(0,0,0,0.08),14,0,0,6);
+        """);
+        if(title != null && !title.isBlank()){
+            Label l = new Label(title);
+            l.setStyle("-fx-font-weight:700;");
+            v.getChildren().add(l);
+        }
+        v.getChildren().add(body);
+        VBox.setVgrow(body, Priority.ALWAYS);
+        return v;
+    }
+
+    private GridPane grid(Node... rows){
+        GridPane g = new GridPane();
+        g.setHgap(14);
+        g.setVgap(10);
+
+        ColumnConstraints c1 = new ColumnConstraints();
+        c1.setMinWidth(180);
+
+        ColumnConstraints c2 = new ColumnConstraints();
+        c2.setHgrow(Priority.ALWAYS);
+
+        g.getColumnConstraints().addAll(c1, c2);
+
+        for(int i=0;i<rows.length;i++){
+            g.add(rows[i],0,i,2,1);
+        }
+        return g;
+    }
+
+    private HBox row(String label, Node field){
+        Label l = new Label(label);
+        l.setMinWidth(180);
+        HBox h = new HBox(12, l, field);
+        HBox.setHgrow(field, Priority.ALWAYS);
+        return h;
+    }
+
+    private Button actionBtn(String text, String color){
+        Button b = new Button(text);
+        b.setStyle("""
+                -fx-background-color:%s;
+                -fx-text-fill:white;
+                -fx-font-weight:600;
+                -fx-background-radius:8;
+        """.formatted(color));
+        return b;
+    }
+
+    private void updateJangka(DatePicker m, DatePicker s, Label l){
         try {
-            LocalDate mulai = dpMulai.getValue();
-            LocalDate selesai = dpSelesai.getValue();
-            if (mulai != null && selesai != null && !selesai.isBefore(mulai)) {
-                long days = ChronoUnit.DAYS.between(mulai, selesai) + 1;
-                lbl.setText(String.valueOf(days));
+            if(m.getValue()!=null && s.getValue()!=null){
+                long d = ChronoUnit.DAYS.between(m.getValue(), s.getValue())+1;
+                l.setText(d>0?d+" hari":"- hari");
             } else {
-                lbl.setText("- hari");
+                l.setText("- hari");
             }
         } catch (Exception e) {
-            lbl.setText("- hari");
+            l.setText("- hari");
         }
     }
+
+    private void calcJaminan(RadioButton rb, TextField nk, TextField p, TextField nj){
+        if(!rb.isSelected()) return;
+        try{
+            double kontrak = parseDouble(nk.getText());
+            double persen = parseDouble(p.getText());
+            if (kontrak <= 0 || persen <= 0) { nj.clear(); return; }
+            double v = kontrak * persen / 100.0;
+            nj.setText(String.format("%.0f", v));
+        }catch(Exception e){ nj.clear(); }
+    }
+
     
-    // ===== Helper: Parsing angka aman =====
     private double parseDouble(String text) {
         if (text == null || text.isBlank()) return 0;
         try {
@@ -473,14 +606,13 @@ btnGenerate.setOnAction(e -> {
             return 0;
         }
     }
-    
-    private String safeFile(String s) {
-    if (s == null || s.isBlank()) return "UNKNOWN";
-    return s.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
-    }
 
     
-    
+    private String safeFile(String s) {
+        if (s == null || s.isBlank()) return "UNKNOWN";
+        return s.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+    }
+
     public static void main(String[] args) {
         launch();
     }
