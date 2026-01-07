@@ -11,7 +11,8 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import javafx.util.Duration;
-
+import java.awt.Desktop;
+import java.io.File;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -39,7 +40,7 @@ public class Main extends Application {
         Label title = new Label("Draft Jaminan — Surety Bond");
         title.setStyle("-fx-font-size:22px;-fx-font-weight:700;");
 
-        Label subtitle = new Label("Kelola draft jaminan, generate dokumen dan SPPA");
+        Label subtitle = new Label("Kelola draft jaminan, generate dokumen, SPPA dan SPMGR");
         subtitle.setStyle("-fx-text-fill:#6b7280;");
 
         VBox header = new VBox(6, title, subtitle);
@@ -166,13 +167,13 @@ public class Main extends Application {
                         row("Nilai Jaminan", tfNilaiJaminan)
                 )
         );
-
+        Button btnOpenOutput = actionBtn("📂 Output", "#0ea5e9");
         Button btnSave = actionBtn("Simpan", "#10b981");
         Button btnGen = actionBtn("Generate", "#2563eb");
         Button btnList = actionBtn("Draft Tersimpan", "#6b7280");
         Button btnUpdate = actionBtn("Update", "#f59e0b");
 
-        HBox actions = new HBox(12, btnSave, btnGen, btnList, btnUpdate);
+        HBox actions = new HBox(12, btnOpenOutput, btnSave, btnGen, btnList, btnUpdate);
         actions.setAlignment(Pos.CENTER_RIGHT);
 
         VBox cardAction = card("", new VBox(10, actions));
@@ -203,7 +204,28 @@ public class Main extends Application {
            =========================== */
         final long[] editingId = new long[] { -1 };
 
-        
+        btnOpenOutput.setOnAction(e -> {
+        try {
+        File dir = new File("output");
+
+        // Kalau folder belum ada → buat otomatis
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+
+        // Buka folder di file explorer
+        if (Desktop.isDesktopSupported()) {
+            Desktop.getDesktop().open(dir);
+        } else {
+            Runtime.getRuntime().exec("explorer " + dir.getAbsolutePath());
+        }
+
+        } catch (Exception ex) {
+         ex.printStackTrace();
+        new Alert(Alert.AlertType.ERROR, "Gagal membuka folder output.").showAndWait();
+         }
+        });
+
         btnSave.setOnAction(e -> {
             double nilaiJaminan = parseDouble(tfNilaiJaminan.getText());
             double nilaiKontrak = parseDouble(tfNilaiKontrak.getText());
@@ -415,7 +437,10 @@ public class Main extends Application {
                 String spTemplate = TemplateResolver.resolve("SPPA");
                 String spOutput = "output/SPPA_" + safeFile(tfPrincipal.getText()) + ".docx";
                 DocxGenerator.generateFromResource(spTemplate, spOutput, data);
-
+                String spmgrTemplate = TemplateResolver.resolve("SPMGR");
+                String spmgrOutput = "output/SPMGR_" + safeFile(tfPrincipal.getText()) + ".docx";
+                DocxGenerator.generateFromResource(spmgrTemplate, spmgrOutput, data);
+                
                 showPopup("Sukses", "Draft berhasil digenerate! (" + outputPath + ")", PopupType.SUCCESS);
                 System.out.println("[DOCX] Generated: " + outputPath);
             } catch (Exception ex) {
