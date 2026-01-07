@@ -11,7 +11,8 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import javafx.util.Duration;
-
+import java.awt.Desktop;
+import java.io.File;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -166,13 +167,13 @@ public class Main extends Application {
                         row("Nilai Jaminan", tfNilaiJaminan)
                 )
         );
-
+        Button btnOpenOutput = actionBtn("📂 Output", "#0ea5e9");
         Button btnSave = actionBtn("Simpan", "#10b981");
         Button btnGen = actionBtn("Generate", "#2563eb");
         Button btnList = actionBtn("Draft Tersimpan", "#6b7280");
         Button btnUpdate = actionBtn("Update", "#f59e0b");
 
-        HBox actions = new HBox(12, btnSave, btnGen, btnList, btnUpdate);
+        HBox actions = new HBox(12, btnOpenOutput, btnSave, btnGen, btnList, btnUpdate);
         actions.setAlignment(Pos.CENTER_RIGHT);
 
         VBox cardAction = card("", new VBox(10, actions));
@@ -203,7 +204,28 @@ public class Main extends Application {
            =========================== */
         final long[] editingId = new long[] { -1 };
 
-        
+        btnOpenOutput.setOnAction(e -> {
+        try {
+        File dir = new File("output");
+
+        // Kalau folder belum ada → buat otomatis
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+
+        // Buka folder di file explorer
+        if (Desktop.isDesktopSupported()) {
+            Desktop.getDesktop().open(dir);
+        } else {
+            Runtime.getRuntime().exec("explorer " + dir.getAbsolutePath());
+        }
+
+        } catch (Exception ex) {
+         ex.printStackTrace();
+        new Alert(Alert.AlertType.ERROR, "Gagal membuka folder output.").showAndWait();
+         }
+        });
+
         btnSave.setOnAction(e -> {
             double nilaiJaminan = parseDouble(tfNilaiJaminan.getText());
             double nilaiKontrak = parseDouble(tfNilaiKontrak.getText());
