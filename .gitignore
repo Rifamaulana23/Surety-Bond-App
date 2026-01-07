@@ -1,0 +1,16 @@
+# Java / Maven build output
+target/
+*.class
+
+# Generated output documents
+output/
+
+# Local database
+surety.db
+
+# Windows shortcuts
+*.lnk
+
+# IDE
+.vscode/
+.idea/
